@@ -51,7 +51,6 @@ fun findUsagesOf(
     pathToProject: String
 ): List<String> {
     val notUsedStrings = list.toMutableList()
-    var filesCount = 0
     File(pathToProject).walk(FileWalkDirection.BOTTOM_UP).forEach { file ->
         if (isExcluded(file)) return@forEach
         if (file.name.endsWith(JAVA_FILES)
@@ -60,7 +59,6 @@ fun findUsagesOf(
             && !file.name.equals("strings.xml")
             && !file.name.equals("merger.xml")
         ) {
-            filesCount++
             val contents = Files.readString(file.toPath())
             val stringsToRemove = mutableListOf<String>()
             notUsedStrings.forEachIndexed { _, stringKey ->
@@ -70,38 +68,13 @@ fun findUsagesOf(
                 }
             }
             if (stringsToRemove.isNotEmpty()) {
-                println("Strings found in file: ${file.path}: ${stringsToRemove.size}")
+//                println("Strings found in file: ${file.path}: ${stringsToRemove.size}")
                 stringsToRemove.forEach { notUsedStrings.remove(it) }
             }
         }
     }
-    println("found $filesCount files")
     return notUsedStrings
 }
-//
-//fun findUsage(
-//    path: String,
-//    string: String,
-//    stringNum: Int,
-//    totalStrings: Int
-//): Boolean {
-//    print("   ${(stringNum * 100) / totalStrings}%  \r")
-//    File(path).walk(FileWalkDirection.BOTTOM_UP).forEach { file ->
-//        if (isExcluded(file)) return@forEach
-//        if (file.name.endsWith(JAVA_FILES)
-//            || file.name.endsWith(KOTLIN_FILES)
-//            || file.name.endsWith(XML_FILES)
-//            && !file.name.equals("strings.xml")
-//            && !file.name.equals("merger.xml")
-//        ) {
-//            val contents = Files.readString(file.toPath())
-//            if (contents.contains(string)) {
-//                return true
-//            }
-//        }
-//    }
-//    return false
-//}
 
 fun isExcluded(file: File) =
     file.path.contains("/build/") ||
@@ -148,18 +121,10 @@ fun generateList(document: Document): List<String> {
     for (i in 0 until strings.length) {
         val item = strings.item(i)
         val stringName = item.attributes.getNamedItem("name").nodeValue
-//        val translatable = item.attributes.getNamedItem("translatable")?.nodeValue ?: "true"
-//        val stringValue = item.textContent
         retValue.add(stringName)
     }
     return retValue
 }
-
-data class StringValues(
-    val name: String,
-    val value: String,
-    val translatable: Boolean = true
-)
 
 sealed class Result<T>(val data: T? = null, val throwable: Throwable? = null) {
     class Ok<T>(data: T) : Result<T>(data)
@@ -173,11 +138,8 @@ const val KOTLIN_FILES = ".kt"
 const val XML_FILES = ".xml"
 
 const val ANSI_RESET = "\u001B[0m"
-const val ANSI_BLACK = "\u001B[30m"
 const val ANSI_RED = "\u001B[31m"
 const val ANSI_GREEN = "\u001B[32m"
 const val ANSI_YELLOW = "\u001B[33m"
 const val ANSI_BLUE = "\u001B[34m"
 const val ANSI_PURPLE = "\u001B[35m"
-const val ANSI_CYAN = "\u001B[36m"
-const val ANSI_WHITE = "\u001B[37m"
