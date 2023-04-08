@@ -9,6 +9,7 @@ import java.nio.file.Paths
 import javax.xml.parsers.DocumentBuilderFactory
 
 fun main(vararg args: String) {
+    val startTime = System.currentTimeMillis()
     val result = checkParams(args)
     val (pathToProject, pathToStrings) = when (result) {
         is Result.Err -> {
@@ -20,10 +21,11 @@ fun main(vararg args: String) {
             result.data!!
         }
     }
-    checkForUnusedStrings(pathToProject, pathToStrings)
+    checkForUnusedStrings(startTime, pathToProject, pathToStrings)
 }
 
 fun checkForUnusedStrings(
+    startTime: Long,
     pathToProject: String,
     pathToStrings: String
 ) {
@@ -31,23 +33,81 @@ fun checkForUnusedStrings(
     println("$ANSI_BLUE      -> $pathToStrings$ANSI_RESET")
     val list = generateList(readFile(Paths.get(pathToStrings)))
     println("$ANSI_GREEN- found ${list.size} strings$ANSI_RESET")
-    val notUsedStrings = mutableListOf<String>()
     println("$ANSI_BLUE- searching for unused strings...$ANSI_RESET")
-    list.forEachIndexed { index, it ->
-        if (!findUsage(
-                path = pathToProject,
-                string = it.name,
-                stringNum = index + 1,
-                totalStrings = list.size
-            )
-        ) {
-            notUsedStrings.add(it.name)
-        }
-    }
+    val notUsedStrings = findUsagesOf(list, pathToProject)
     notUsedStrings.forEach { println(it) }
     if (notUsedStrings.isEmpty()) println("$ANSI_GREEN- no unused strings found!$ANSI_RESET")
     else println("${ANSI_YELLOW}Not used strings: ${notUsedStrings.size}$ANSI_RESET")
+    val endTime = System.currentTimeMillis()
+    val totalTime = endTime - startTime
+    println(startTime)
+    println(endTime)
+    println(totalTime)
+    println("$ANSI_PURPLE- done in ${(totalTime.toFloat() / 1000)}s$ANSI_RESET")
 }
+
+fun findUsagesOf(
+    list: List<String>,
+    pathToProject: String
+): List<String> {
+    val notUsedStrings = list.toMutableList()
+    var filesCount = 0
+    File(pathToProject).walk(FileWalkDirection.BOTTOM_UP).forEach { file ->
+        if (isExcluded(file)) return@forEach
+        if (file.name.endsWith(JAVA_FILES)
+            || file.name.endsWith(KOTLIN_FILES)
+            || file.name.endsWith(XML_FILES)
+            && !file.name.equals("strings.xml")
+            && !file.name.equals("merger.xml")
+        ) {
+            filesCount++
+            val contents = Files.readString(file.toPath())
+            val stringsToRemove = mutableListOf<String>()
+            notUsedStrings.forEachIndexed { _, stringKey ->
+                if (contents.contains("R.string.$stringKey") || contents.contains("@string/$stringKey")) {
+                    if(!stringsToRemove.contains(stringKey)) stringsToRemove.add(stringKey)
+                    return@forEachIndexed
+                }
+            }
+            if (stringsToRemove.isNotEmpty()) {
+                println("Strings found in file: ${file.path}: ${stringsToRemove.size}")
+                stringsToRemove.forEach { notUsedStrings.remove(it) }
+            }
+        }
+    }
+    println("found $filesCount files")
+    return notUsedStrings
+}
+//
+//fun findUsage(
+//    path: String,
+//    string: String,
+//    stringNum: Int,
+//    totalStrings: Int
+//): Boolean {
+//    print("   ${(stringNum * 100) / totalStrings}%  \r")
+//    File(path).walk(FileWalkDirection.BOTTOM_UP).forEach { file ->
+//        if (isExcluded(file)) return@forEach
+//        if (file.name.endsWith(JAVA_FILES)
+//            || file.name.endsWith(KOTLIN_FILES)
+//            || file.name.endsWith(XML_FILES)
+//            && !file.name.equals("strings.xml")
+//            && !file.name.equals("merger.xml")
+//        ) {
+//            val contents = Files.readString(file.toPath())
+//            if (contents.contains(string)) {
+//                return true
+//            }
+//        }
+//    }
+//    return false
+//}
+
+fun isExcluded(file: File) =
+    file.path.contains("/build/") ||
+            file.name.startsWith(".") ||
+            file.name.endsWith(".mg", ignoreCase = true)
+
 
 fun checkParams(args: Array<out String>): Result<Pair<String, String>> {
     if (args.size > 1) {
@@ -73,35 +133,6 @@ fun checkParams(args: Array<out String>): Result<Pair<String, String>> {
     return Result.Ok(rootPath to pathToStrings.toString())
 }
 
-fun findUsage(
-    path: String,
-    string: String,
-    stringNum: Int,
-    totalStrings: Int
-): Boolean {
-    print("   ${(stringNum * 100) / totalStrings}%  \r")
-    File(path).walk(FileWalkDirection.BOTTOM_UP).forEach { file ->
-        if (isExcluded(file)) return@forEach
-        if (file.name.endsWith(JAVA_FILES)
-            || file.name.endsWith(KOTLIN_FILES)
-            || file.name.endsWith(XML_FILES)
-            && !file.name.equals("strings.xml")
-            && !file.name.equals("merger.xml")
-        ) {
-            val contents = Files.readString(file.toPath())
-            if (contents.contains(string)) {
-                return true
-            }
-        }
-    }
-    return false
-}
-
-fun isExcluded(file: File) =
-    file.path.contains("/build/") ||
-            file.name.startsWith(".") ||
-            file.name.endsWith(".mg", ignoreCase = true)
-
 fun readFile(path: Path) = readXml(File(path.toString()))
 
 fun readXml(file: File): Document {
@@ -111,21 +142,15 @@ fun readXml(file: File): Document {
     return dBuilder.parse(xmlInput)
 }
 
-fun generateList(document: Document): List<StringValues> {
-    val retValue = mutableListOf<StringValues>()
+fun generateList(document: Document): List<String> {
+    val retValue = mutableListOf<String>()
     val strings = document.getElementsByTagName("string")
     for (i in 0 until strings.length) {
         val item = strings.item(i)
         val stringName = item.attributes.getNamedItem("name").nodeValue
-        val translatable = item.attributes.getNamedItem("translatable")?.nodeValue ?: "true"
-        val stringValue = item.textContent
-        retValue.add(
-            StringValues(
-                name = stringName,
-                value = stringValue,
-                translatable = translatable != "false"
-            )
-        )
+//        val translatable = item.attributes.getNamedItem("translatable")?.nodeValue ?: "true"
+//        val stringValue = item.textContent
+        retValue.add(stringName)
     }
     return retValue
 }
