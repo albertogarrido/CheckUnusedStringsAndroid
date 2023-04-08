@@ -38,12 +38,7 @@ fun checkForUnusedStrings(
     notUsedStrings.forEach { println(it) }
     if (notUsedStrings.isEmpty()) println("$ANSI_GREEN- no unused strings found!$ANSI_RESET")
     else println("${ANSI_YELLOW}Not used strings: ${notUsedStrings.size}$ANSI_RESET")
-    val endTime = System.currentTimeMillis()
-    val totalTime = endTime - startTime
-    println(startTime)
-    println(endTime)
-    println(totalTime)
-    println("$ANSI_PURPLE- done in ${(totalTime.toFloat() / 1000)}s$ANSI_RESET")
+    println("$ANSI_PURPLE- done in ${(System.currentTimeMillis() - startTime).toFloat() / 1000}s$ANSI_RESET")
 }
 
 fun findUsagesOf(
