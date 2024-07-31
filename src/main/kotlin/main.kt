@@ -11,21 +11,15 @@ import javax.xml.parsers.DocumentBuilderFactory
 // execute via terminal passing your android project's path
 // execute via idea by typing your android project's path in the edit configuration section
 fun main(vararg args: String) {
-    val startTime = System.currentTimeMillis()
-    val result = checkParams(args)
-    val (pathToProject, pathToStrings) = when (result) {
-        is Result.Err -> {
-            System.err.println("${ANSI_RED}${result.throwable!!.message}${ANSI_RESET}")
-            return
+    checkParams(args).fold(
+        onFailure = {
+            System.err.println("${ANSI_RED}${it.message}${ANSI_RESET}")
+        },
+        onSuccess = {
+            checkForUnusedStrings(System.currentTimeMillis(), it.first, it.second)
         }
-
-        is Result.Ok -> {
-            result.data!!
-        }
-    }
-    checkForUnusedStrings(startTime, pathToProject, pathToStrings)
+    )
 }
-
 
 fun checkForUnusedStrings(
     startTime: Long,
@@ -61,7 +55,7 @@ fun findUsagesOf(
             val stringsToRemove = mutableListOf<String>()
             notUsedStrings.forEachIndexed { _, stringKey ->
                 if (contents.contains("R.string.$stringKey") || contents.contains("@string/$stringKey")) {
-                    if(!stringsToRemove.contains(stringKey)) stringsToRemove.add(stringKey)
+                    if (!stringsToRemove.contains(stringKey)) stringsToRemove.add(stringKey)
                     return@forEachIndexed
                 }
             }
@@ -82,11 +76,11 @@ fun isExcluded(file: File) =
 
 fun checkParams(args: Array<out String>): Result<Pair<String, String>> {
     if (args.size > 1) {
-        return Result.Err(IllegalArgumentException("Error: too many arguments. Please add the path to your android project"))
+        return Result.failure(IllegalArgumentException("Error: too many arguments. Please add the path to your android project"))
     }
 
     if (args.isEmpty()) {
-        return Result.Err(IllegalArgumentException("Error: too few arguments. Please add the path to your android project"))
+        return Result.failure(IllegalArgumentException("Error: too few arguments. Please add the path to your android project"))
     }
 
     val pathArg = args.first()
@@ -99,9 +93,9 @@ fun checkParams(args: Array<out String>): Result<Pair<String, String>> {
 
     val pathToStrings = Paths.get(rootPath + STRINGS_EN)
     if (!Files.exists(pathToStrings)) {
-        return Result.Err(IllegalArgumentException("Error: $rootPath doesn't seem to be a valid android project."))
+        return Result.failure(IllegalArgumentException("Error: $rootPath doesn't seem to be a valid android project."))
     }
-    return Result.Ok(rootPath to pathToStrings.toString())
+    return Result.success(rootPath to pathToStrings.toString())
 }
 
 fun readFile(path: Path) = readXml(File(path.toString()))
@@ -122,11 +116,6 @@ fun generateList(document: Document): List<String> {
         retValue.add(stringName)
     }
     return retValue
-}
-
-sealed class Result<T>(val data: T? = null, val throwable: Throwable? = null) {
-    class Ok<T>(data: T) : Result<T>(data)
-    class Err<T>(throwable: Throwable?, data: T? = null) : Result<T>(data, throwable)
 }
 
 const val STRINGS_EN = "app/src/main/res/values/strings.xml"
