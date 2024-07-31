@@ -8,6 +8,8 @@ import java.nio.file.Path
 import java.nio.file.Paths
 import javax.xml.parsers.DocumentBuilderFactory
 
+// execute via terminal passing your android project's path
+// execute via idea by typing your android project's path in the edit configuration section
 fun main(vararg args: String) {
     val startTime = System.currentTimeMillis()
     val result = checkParams(args)
@@ -23,6 +25,7 @@ fun main(vararg args: String) {
     }
     checkForUnusedStrings(startTime, pathToProject, pathToStrings)
 }
+
 
 fun checkForUnusedStrings(
     startTime: Long,
@@ -83,7 +86,7 @@ fun checkParams(args: Array<out String>): Result<Pair<String, String>> {
     }
 
     if (args.isEmpty()) {
-        return Result.Err(IllegalArgumentException("Error: too many arguments. Please add the path to your android project"))
+        return Result.Err(IllegalArgumentException("Error: too few arguments. Please add the path to your android project"))
     }
 
     val pathArg = args.first()
