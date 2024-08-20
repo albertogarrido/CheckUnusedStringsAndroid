@@ -36,7 +36,29 @@ fun checkForUnusedStrings(
     if (notUsedStrings.isEmpty()) println("$ANSI_GREEN- no unused strings found!$ANSI_RESET")
     else println("${ANSI_YELLOW}Not used strings: ${notUsedStrings.size}$ANSI_RESET")
     println("$ANSI_PURPLE- done in ${(System.currentTimeMillis() - startTime).toFloat() / 1000}s$ANSI_RESET")
+    println(pathToStrings)
+    deleteStrings(notUsedStrings, pathToStrings)
+    deleteStrings(notUsedStrings, pathToStrings.replace("values", "values-de"))
 }
+
+fun deleteStrings(notUsedStrings: List<String>, filePath: String) {
+    val file = File(filePath)
+    if (!file.exists()) {
+        throw IllegalArgumentException("File does not exist: $filePath")
+    }
+
+    // Read the file content
+    val lines = file.readLines()
+
+    // Filter out lines that contain any of the strings in the list
+    val filteredLines = lines.filter { line ->
+        notUsedStrings.none { line.contains(it) }
+    }
+
+    // Write the filtered lines back to the file
+    file.writeText(filteredLines.joinToString(separator = "\n"))
+}
+
 
 fun findUsagesOf(
     list: List<String>,
@@ -92,6 +114,7 @@ fun checkParams(args: Array<out String>): Result<Pair<String, String>> {
     }
 
     val pathToStrings = Paths.get(rootPath + STRINGS_EN)
+    println(pathToStrings)
     if (!Files.exists(pathToStrings)) {
         return Result.failure(IllegalArgumentException("Error: $rootPath doesn't seem to be a valid android project."))
     }
