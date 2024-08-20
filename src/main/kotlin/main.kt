@@ -46,19 +46,11 @@ fun deleteStrings(notUsedStrings: List<String>, filePath: String) {
     if (!file.exists()) {
         throw IllegalArgumentException("File does not exist: $filePath")
     }
-
-    // Read the file content
-    val lines = file.readLines()
-
-    // Filter out lines that contain any of the strings in the list
-    val filteredLines = lines.filter { line ->
-        notUsedStrings.none { line.contains(it) }
-    }
-
-    // Write the filtered lines back to the file
-    file.writeText(filteredLines.joinToString(separator = "\n"))
+    file.readLines()
+        .filter { line -> notUsedStrings.none { line.contains(it) } }
+        .joinToString(separator = "\n")
+        .also { file.writeText(it) }
 }
-
 
 fun findUsagesOf(
     list: List<String>,
